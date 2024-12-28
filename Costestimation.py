@@ -1,81 +1,121 @@
 import streamlit as st
 import pandas as pd
+import fitz  # PyMuPDF
 import os
 
 # Title of the app
 st.title("Budgetary Offer Processing App")
 
+# Function to extract text from a PDF
+def extract_text_from_pdf(pdf_file):
+    try:
+        doc = fitz.open(pdf_file)  # Open the PDF file
+        text = ""
+        for page_num in range(doc.page_count):  # Loop through each page
+            page = doc.load_page(page_num)  # Load the page
+            text += page.get_text("text")  # Extract text from the page
+        return text
+    except Exception as e:
+        st.error(f"Error while processing the PDF: {e}")
+        return None
+
 # Step 1: File Upload Section
 st.header("Upload Budgetary Offers")
-uploaded_files = st.file_uploader("Upload your files (Excel, PDF, Word, JPEG)", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload your files (PDF)", accept_multiple_files=True)
 
-# To store processed data
-offers_data = []
+# Store the extracted data
+extracted_data = []
 
 # Process each uploaded file
 if uploaded_files:
-    st.subheader("Uploaded Files:")
     for file in uploaded_files:
-        st.write(f"File: {file.name}")
+        st.write(f"Processing file: {file.name}")
+        extracted_text = extract_text_from_pdf(file)  # Extract text
         
-        # File type checking
-        if file.name.endswith('.xlsx'):
-            df = pd.read_excel(file)
-            st.write(f"Data from {file.name}:")
-            st.write(df)
-            offers_data.append(df)
-        elif file.name.endswith('.pdf'):
-            # Add PDF processing logic (e.g., using PyMuPDF or PyPDF2)
-            st.write(f"PDF file: {file.name} - Extracting data...")
-        elif file.name.endswith('.docx'):
-            # Add Word processing logic (e.g., using python-docx)
-            st.write(f"Word file: {file.name} - Extracting data...")
-        elif file.name.endswith('.jpeg') or file.name.endswith('.jpg'):
-            # Add image processing logic (e.g., using pytesseract)
-            st.write(f"Image file: {file.name} - Extracting text...")
-
-    # Debug: Check the offers_data list
-    st.write("Offers Data Collected:")
-    st.write(offers_data)
+        if extracted_text:
+            st.text_area("Extracted Text", extracted_text, height=300)  # Display extracted text
+            extracted_data.append(extracted_text)  # Store extracted text for further processing
+        else:
+            st.error(f"Failed to extract text from {file.name}.")
+else:
+    st.warning("Please upload a valid PDF file.")
 
 # Step 2: LCNITC Calculation Section
 st.header("Calculate LCNITC Rates")
-if st.button("Generate Calculations for All Offers"):
-    if offers_data:  # Check if offers_data is not empty
-        all_data = []
-        for offer in offers_data:
-            # Assuming the structure of each dataframe has 'Base Rate (INR)', 'Freight (%)', etc.
-            offer["Freight (INR)"] = (offer["Base Rate (INR)"] * offer["Freight (%)"]) / 100
-            offer["P&F (INR)"] = (offer["Base Rate (INR)"] * offer["Packing & Forwarding (%)"]) / 100
-            offer["Taxes (INR)"] = (offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"]) * (offer["CGST & SGST (%)"] / 100)
-            offer["Landed Cost (INR)"] = offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"] + offer["Taxes (INR)"]
-            offer["LCNITC (INR)"] = offer["Landed Cost (INR)"] - offer["Taxes (INR)"]
-            all_data.append(offer)
+if st.button("Generate Sample Data"):
+    # Create dummy data for testing
+    data = {
+        "Supplier": ["M/s MPFS Raipur", "M/s Macro Tech Engineers"],
+        "Base Rate (INR)": [18000, 18500],
+        "Freight (%)": [0, 2],
+        "Packing & Forwarding (%)": [3, 0],
+        "CGST & SGST (%)": [18, 18]
+    }
+    df = pd.DataFrame(data)
+    st.write("Uploaded Data:")
+    st.write(df)
 
-        # Combine all dataframes into one
-        final_df = pd.concat(all_data, ignore_index=True)
+    # Perform LCNITC calculation
+    df["Freight (INR)"] = (df["Base Rate (INR)"] * df["Freight (%)"]) / 100
+    df["P&F (INR)"] = (df["Base Rate (INR)"] * df["Packing & Forwarding (%)"]) / 100
+    df["Taxes (INR)"] = (df["Base Rate (INR)"] + df["Freight (INR)"] + df["P&F (INR)"]) * (df["CGST & SGST (%)"] / 100)
+    df["Landed Cost (INR)"] = df["Base Rate (INR)"] + df["Freight (INR)"] + df["P&F (INR)"] + df["Taxes (INR)"]
+    df["LCNITC (INR)"] = df["Landed Cost (INR)"] - df["Taxes (INR)"]
 
-        # Display final calculated data
-        st.write("Calculated Data for All Offers:")
-        st.write(final_df)
+    st.write("Calculated Data:")
+    st.write(df)
 
-        # Export as Excel in the required format
-        file_path = "calculated_data.xlsx"
-        final_df.to_excel(file_path, index=False)
-        with open(file_path, "rb") as file:
-            st.download_button(
-                label="Download Processed Excel",
-                data=file,
-                file_name="LCNITC_Calculations.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            os.remove(file_path)
-    else:
-        st.error("No data to process. Please upload valid budgetary offers.")
-        
+    # Export as Excel
+    file_path = "calculated_data.xlsx"
+    df.to_excel(file_path, index=False)
+    with open(file_path, "rb") as file:
+        st.download_button(
+            label="Download Processed Excel",
+            data=file,
+            file_name="LCNITC_Calculations.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        os.remove(file_path)
+
+# Step 3: Generate Cost Estimate Sheet
+st.header("Generate Cost Estimate Sheet")
+if st.button("Generate Cost Estimate"):
+    # Sample data for cost estimate sheet
+    cost_data = {
+        "Sl. No.": [1],
+        "UCS Code": ["20512001002541"],
+        "Drawing No.": ["SMS3-22-277"],
+        "Item description": ["Gear coupling Assy. For long roller"],
+        "Unit": ["EA"],
+        "Installed qty": [36],
+        "Order Qty": [40],
+        "Estimated rate (Rs.) (L1 price)(LCNITC)": [18000],
+        "Amount (Rs.)": [18000 * 40]
+    }
+
+    cost_df = pd.DataFrame(cost_data)
+
+    # Display the cost estimate data
+    st.write("Cost Estimate Data:")
+    st.write(cost_df)
+
+    # Export the cost estimate sheet to Excel
+    cost_file_path = "cost_estimate_sheet.xlsx"
+    cost_df.to_excel(cost_file_path, index=False)
+
+    with open(cost_file_path, "rb") as file:
+        st.download_button(
+            label="Download Cost Estimate Sheet",
+            data=file,
+            file_name="Cost_Estimate_Sheet.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        os.remove(cost_file_path)
+
 # Notes Section
 st.header("Notes Section")
 st.text_area("Add Special Notes", "Enter any specific notes here for the processed case.")
+
 
 
 
