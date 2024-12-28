@@ -34,40 +34,48 @@ if uploaded_files:
             # Add image processing logic (e.g., using pytesseract)
             st.write(f"Image file: {file.name} - Extracting text...")
 
+    # Debug: Check the offers_data list
+    st.write("Offers Data Collected:")
+    st.write(offers_data)
+
 # Step 2: LCNITC Calculation Section
 st.header("Calculate LCNITC Rates")
 if st.button("Generate Calculations for All Offers"):
-    all_data = []
-    for offer in offers_data:
-        # Assuming the structure of each dataframe has 'Base Rate (INR)', 'Freight (%)', etc.
-        offer["Freight (INR)"] = (offer["Base Rate (INR)"] * offer["Freight (%)"]) / 100
-        offer["P&F (INR)"] = (offer["Base Rate (INR)"] * offer["Packing & Forwarding (%)"]) / 100
-        offer["Taxes (INR)"] = (offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"]) * (offer["CGST & SGST (%)"] / 100)
-        offer["Landed Cost (INR)"] = offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"] + offer["Taxes (INR)"]
-        offer["LCNITC (INR)"] = offer["Landed Cost (INR)"] - offer["Taxes (INR)"]
-        all_data.append(offer)
+    if offers_data:  # Check if offers_data is not empty
+        all_data = []
+        for offer in offers_data:
+            # Assuming the structure of each dataframe has 'Base Rate (INR)', 'Freight (%)', etc.
+            offer["Freight (INR)"] = (offer["Base Rate (INR)"] * offer["Freight (%)"]) / 100
+            offer["P&F (INR)"] = (offer["Base Rate (INR)"] * offer["Packing & Forwarding (%)"]) / 100
+            offer["Taxes (INR)"] = (offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"]) * (offer["CGST & SGST (%)"] / 100)
+            offer["Landed Cost (INR)"] = offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"] + offer["Taxes (INR)"]
+            offer["LCNITC (INR)"] = offer["Landed Cost (INR)"] - offer["Taxes (INR)"]
+            all_data.append(offer)
 
-    # Combine all dataframes into one
-    final_df = pd.concat(all_data, ignore_index=True)
+        # Combine all dataframes into one
+        final_df = pd.concat(all_data, ignore_index=True)
 
-    # Display final calculated data
-    st.write("Calculated Data for All Offers:")
-    st.write(final_df)
+        # Display final calculated data
+        st.write("Calculated Data for All Offers:")
+        st.write(final_df)
 
-    # Export as Excel in the required format
-    file_path = "calculated_data.xlsx"
-    final_df.to_excel(file_path, index=False)
-    with open(file_path, "rb") as file:
-        st.download_button(
-            label="Download Processed Excel",
-            data=file,
-            file_name="LCNITC_Calculations.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        os.remove(file_path)
-
+        # Export as Excel in the required format
+        file_path = "calculated_data.xlsx"
+        final_df.to_excel(file_path, index=False)
+        with open(file_path, "rb") as file:
+            st.download_button(
+                label="Download Processed Excel",
+                data=file,
+                file_name="LCNITC_Calculations.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            os.remove(file_path)
+    else:
+        st.error("No data to process. Please upload valid budgetary offers.")
+        
 # Notes Section
 st.header("Notes Section")
 st.text_area("Add Special Notes", "Enter any specific notes here for the processed case.")
+
 
 
