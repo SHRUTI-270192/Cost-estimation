@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import fitz  # PyMuPDF
 import os
-import tempfile
 
 # Title of the app
 st.title("Budgetary Offer Processing App")
@@ -10,21 +9,11 @@ st.title("Budgetary Offer Processing App")
 # Function to extract text from a PDF
 def extract_text_from_pdf(pdf_file):
     try:
-        # Create a temporary file to save the uploaded file
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-            tmp_file.write(pdf_file.read())  # Write the uploaded file content to temp file
-            temp_file_path = tmp_file.name  # Get the path of the temporary file
-        
-        # Open the temporary file with PyMuPDF
-        doc = fitz.open(temp_file_path)
+        doc = fitz.open(pdf_file)  # Open the PDF file
         text = ""
         for page_num in range(doc.page_count):  # Loop through each page
             page = doc.load_page(page_num)  # Load the page
             text += page.get_text("text")  # Extract text from the page
-
-        # Clean up temporary file after processing
-        os.remove(temp_file_path)
-        
         return text
     except Exception as e:
         st.error(f"Error while processing the PDF: {e}")
@@ -56,11 +45,11 @@ st.header("Calculate LCNITC Rates")
 if st.button("Generate Sample Data"):
     # Create dummy data for testing
     data = {
-        "Supplier": ["M/s MPFS Raipur", "M/s Macro Tech Engineers"],
-        "Base Rate (INR)": [18000, 18500],
-        "Freight (%)": [0, 2],
-        "Packing & Forwarding (%)": [3, 0],
-        "CGST & SGST (%)": [18, 18]
+        "Supplier": ["M/s MPFS Raipur", "M/s Macro Tech Engineers", "M/s Simplex Engineers"],
+        "Base Rate (INR)": [18000, 18500, 17500],
+        "Freight (%)": [0, 2, 1],
+        "Packing & Forwarding (%)": [3, 0, 2],
+        "CGST & SGST (%)": [18, 18, 18]
     }
     df = pd.DataFrame(data)
     st.write("Uploaded Data:")
@@ -76,17 +65,8 @@ if st.button("Generate Sample Data"):
     st.write("Calculated Data:")
     st.write(df)
 
-    # Export as Excel
-    file_path = "calculated_data.xlsx"
-    df.to_excel(file_path, index=False)
-    with open(file_path, "rb") as file:
-        st.download_button(
-            label="Download Processed Excel",
-            data=file,
-            file_name="LCNITC_Calculations.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        os.remove(file_path)
+    # Store L-1 rate for cost estimate
+    L1_rate = df["LCNITC (INR)"].min()
 
 # Step 3: Generate Cost Estimate Sheet
 st.header("Generate Cost Estimate Sheet")
@@ -100,8 +80,11 @@ if st.button("Generate Cost Estimate"):
         "Unit": ["EA"],
         "Installed qty": [36],
         "Order Qty": [40],
-        "Estimated rate (Rs.) (L1 price)(LCNITC)": [18000],
-        "Amount (Rs.)": [18000 * 40]
+        "Party-1 Rate (INR)": [df.loc[0, "LCNITC (INR)"]],
+        "Party-2 Rate (INR)": [df.loc[1, "LCNITC (INR)"]],
+        "Party-3 Rate (INR)": [df.loc[2, "LCNITC (INR)"]],
+        "Estimated Rate (L-1) (INR)": [L1_rate],  # L-1 rate from the calculated data
+        "Amount (Rs.)": [L1_rate * 40]
     }
 
     cost_df = pd.DataFrame(cost_data)
@@ -114,6 +97,12 @@ if st.button("Generate Cost Estimate"):
     cost_file_path = "cost_estimate_sheet.xlsx"
     cost_df.to_excel(cost_file_path, index=False)
 
+    # Add Notes Section
+    special_notes = st.text_area("Add Special Notes", "Enter any specific notes here for the processed case.")
+    if special_notes:
+        cost_df["Notes"] = special_notes
+        cost_df.to_excel(cost_file_path, index=False)
+
     with open(cost_file_path, "rb") as file:
         st.download_button(
             label="Download Cost Estimate Sheet",
@@ -122,12 +111,3 @@ if st.button("Generate Cost Estimate"):
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         os.remove(cost_file_path)
-
-# Notes Section
-st.header("Notes Section")
-st.text_area("Add Special Notes", "Enter any specific notes here for the processed case.")
-
-
-
-
-
