@@ -17,40 +17,46 @@ if uploaded_files:
     st.subheader("Uploaded Files:")
     for file in uploaded_files:
         st.write(f"File: {file.name}")
-        # Placeholder logic for file processing
-        offers_data.append({
-            "File Name": file.name,
-            "Status": "Processed"  # Update with actual processing logic
-        })
+        
+        # File type checking
+        if file.name.endswith('.xlsx'):
+            df = pd.read_excel(file)
+            st.write(f"Data from {file.name}:")
+            st.write(df)
+            offers_data.append(df)
+        elif file.name.endswith('.pdf'):
+            # Add PDF processing logic (e.g., using PyMuPDF or PyPDF2)
+            st.write(f"PDF file: {file.name} - Extracting data...")
+        elif file.name.endswith('.docx'):
+            # Add Word processing logic (e.g., using python-docx)
+            st.write(f"Word file: {file.name} - Extracting data...")
+        elif file.name.endswith('.jpeg') or file.name.endswith('.jpg'):
+            # Add image processing logic (e.g., using pytesseract)
+            st.write(f"Image file: {file.name} - Extracting text...")
 
 # Step 2: LCNITC Calculation Section
 st.header("Calculate LCNITC Rates")
-if st.button("Generate Sample Data"):
-    # Create dummy data for testing
-    data = {
-        "Supplier": ["M/s MPFS Raipur", "M/s Macro Tech Engineers"],
-        "Base Rate (INR)": [18000, 18500],
-        "Freight (%)": [0, 2],
-        "Packing & Forwarding (%)": [3, 0],
-        "CGST & SGST (%)": [18, 18]
-    }
-    df = pd.DataFrame(data)
-    st.write("Uploaded Data:")
-    st.write(df)
+if st.button("Generate Calculations for All Offers"):
+    all_data = []
+    for offer in offers_data:
+        # Assuming the structure of each dataframe has 'Base Rate (INR)', 'Freight (%)', etc.
+        offer["Freight (INR)"] = (offer["Base Rate (INR)"] * offer["Freight (%)"]) / 100
+        offer["P&F (INR)"] = (offer["Base Rate (INR)"] * offer["Packing & Forwarding (%)"]) / 100
+        offer["Taxes (INR)"] = (offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"]) * (offer["CGST & SGST (%)"] / 100)
+        offer["Landed Cost (INR)"] = offer["Base Rate (INR)"] + offer["Freight (INR)"] + offer["P&F (INR)"] + offer["Taxes (INR)"]
+        offer["LCNITC (INR)"] = offer["Landed Cost (INR)"] - offer["Taxes (INR)"]
+        all_data.append(offer)
 
-    # Perform LCNITC calculation
-    df["Freight (INR)"] = (df["Base Rate (INR)"] * df["Freight (%)"]) / 100
-    df["P&F (INR)"] = (df["Base Rate (INR)"] * df["Packing & Forwarding (%)"]) / 100
-    df["Taxes (INR)"] = (df["Base Rate (INR)"] + df["Freight (INR)"] + df["P&F (INR)"]) * (df["CGST & SGST (%)"] / 100)
-    df["Landed Cost (INR)"] = df["Base Rate (INR)"] + df["Freight (INR)"] + df["P&F (INR)"] + df["Taxes (INR)"]
-    df["LCNITC (INR)"] = df["Landed Cost (INR)"] - df["Taxes (INR)"]
+    # Combine all dataframes into one
+    final_df = pd.concat(all_data, ignore_index=True)
 
-    st.write("Calculated Data:")
-    st.write(df)
+    # Display final calculated data
+    st.write("Calculated Data for All Offers:")
+    st.write(final_df)
 
-    # Export as Excel
+    # Export as Excel in the required format
     file_path = "calculated_data.xlsx"
-    df.to_excel(file_path, index=False)
+    final_df.to_excel(file_path, index=False)
     with open(file_path, "rb") as file:
         st.download_button(
             label="Download Processed Excel",
@@ -63,4 +69,5 @@ if st.button("Generate Sample Data"):
 # Notes Section
 st.header("Notes Section")
 st.text_area("Add Special Notes", "Enter any specific notes here for the processed case.")
+
 
