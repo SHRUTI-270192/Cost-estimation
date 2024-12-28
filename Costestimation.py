@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import fitz  # PyMuPDF
 import os
+import tempfile
 
 # Title of the app
 st.title("Budgetary Offer Processing App")
@@ -9,11 +10,21 @@ st.title("Budgetary Offer Processing App")
 # Function to extract text from a PDF
 def extract_text_from_pdf(pdf_file):
     try:
-        doc = fitz.open(pdf_file)  # Open the PDF file
+        # Create a temporary file to save the uploaded file
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(pdf_file.read())  # Write the uploaded file content to temp file
+            temp_file_path = tmp_file.name  # Get the path of the temporary file
+        
+        # Open the temporary file with PyMuPDF
+        doc = fitz.open(temp_file_path)
         text = ""
         for page_num in range(doc.page_count):  # Loop through each page
             page = doc.load_page(page_num)  # Load the page
             text += page.get_text("text")  # Extract text from the page
+
+        # Clean up temporary file after processing
+        os.remove(temp_file_path)
+        
         return text
     except Exception as e:
         st.error(f"Error while processing the PDF: {e}")
@@ -115,6 +126,7 @@ if st.button("Generate Cost Estimate"):
 # Notes Section
 st.header("Notes Section")
 st.text_area("Add Special Notes", "Enter any specific notes here for the processed case.")
+
 
 
 
